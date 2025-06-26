@@ -3,6 +3,11 @@ const router = express.Router();
 const multer = require("multer");
 const cloudinary = require("../config/cloudinary");
 
+// Test route to verify upload endpoint is working
+router.get("/test", (req, res) => {
+  res.json({ message: "Upload route is working" });
+});
+
 // Configure multer for memory storage
 const upload = multer({
   storage: multer.memoryStorage(),
