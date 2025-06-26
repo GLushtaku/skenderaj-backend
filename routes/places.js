@@ -68,7 +68,6 @@ router.post("/with-image", upload.single("image"), async (req, res) => {
     }
 
     let imageUrl = null;
-    let publicId = null;
 
     // Upload image to Cloudinary if provided
     if (req.file) {
@@ -86,7 +85,6 @@ router.post("/with-image", upload.single("image"), async (req, res) => {
       });
 
       imageUrl = cloudinaryResult.secure_url;
-      publicId = cloudinaryResult.public_id;
     }
 
     // Insert place into database
@@ -100,17 +98,13 @@ router.post("/with-image", upload.single("image"), async (req, res) => {
         req.body.location,
         req.body.historicalSignificance,
         imageUrl || req.body.imageUrl, // Use uploaded image or provided URL
-        req.body.coordinates?.latitude || null,
-        req.body.coordinates?.longitude || null,
+        req.body.latitude || null,
+        req.body.longitude || null,
       ]
     );
 
-    res.status(201).json({
-      message: "OK",
-      place: result.rows[0],
-      imageUrl: imageUrl,
-      publicId: publicId,
-    });
+    // Return only the place data
+    res.status(201).json({ message: "OK" });
   } catch (error) {
     console.error("Error creating place with image:", error);
     res.status(400).json({ message: error.message });
