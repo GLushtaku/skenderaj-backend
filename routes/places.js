@@ -5,11 +5,14 @@ const pool = require("../config/database");
 // Get all places
 router.get("/", async (req, res) => {
   try {
+    console.log("Attempting to fetch all places...");
     const result = await pool.query(
       "SELECT * FROM places ORDER BY created_at DESC"
     );
+    console.log(`Found ${result.rows.length} places`);
     res.json(result.rows);
   } catch (error) {
+    console.error("Error fetching places:", error);
     res.status(500).json({ message: error.message });
   }
 });
