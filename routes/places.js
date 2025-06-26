@@ -222,6 +222,105 @@ router.patch("/:id", async (req, res) => {
   }
 });
 
+// Update place with image upload
+router.patch("/:id/with-image", upload.single("image"), async (req, res) => {
+  try {
+    // Check if place exists
+    const existingPlace = await pool.query(
+      "SELECT * FROM places WHERE id = $1",
+      [req.params.id]
+    );
+
+    if (existingPlace.rows.length === 0) {
+      return res.status(404).json({ message: "Vendi nuk u gjet" });
+    }
+
+    // Check if new name conflicts with other places
+    if (req.body.name) {
+      const nameConflict = await pool.query(
+        "SELECT * FROM places WHERE name = $1 AND id != $2",
+        [req.body.name, req.params.id]
+      );
+
+      if (nameConflict.rows.length > 0) {
+        return res.status(400).json({
+          message: "Ekziston një vend tjetër me të njëjtin emër",
+        });
+      }
+    }
+
+    let imageUrl = null;
+
+    // Upload new image to Cloudinary if provided
+    if (req.file) {
+      // Convert buffer to base64
+      const b64 = Buffer.from(req.file.buffer).toString("base64");
+      const dataURI = `data:${req.file.mimetype};base64,${b64}`;
+
+      // Upload to Cloudinary
+      const cloudinaryResult = await cloudinary.uploader.upload(dataURI, {
+        folder: "skenderaj-places",
+        transformation: [
+          { width: 800, height: 600, crop: "limit" },
+          { quality: "auto" },
+        ],
+      });
+
+      imageUrl = cloudinaryResult.secure_url;
+    }
+
+    // Build update query dynamically
+    const updateFields = [];
+    const values = [];
+    let paramCount = 1;
+
+    if (req.body.name) {
+      updateFields.push(`name = $${paramCount++}`);
+      values.push(req.body.name);
+    }
+    if (req.body.description) {
+      updateFields.push(`description = $${paramCount++}`);
+      values.push(req.body.description);
+    }
+    if (req.body.location) {
+      updateFields.push(`location = $${paramCount++}`);
+      values.push(req.body.location);
+    }
+    if (req.body.historicalSignificance) {
+      updateFields.push(`historical_significance = $${paramCount++}`);
+      values.push(req.body.historicalSignificance);
+    }
+    if (imageUrl) {
+      updateFields.push(`image_url = $${paramCount++}`);
+      values.push(imageUrl);
+    } else if (req.body.imageUrl) {
+      updateFields.push(`image_url = $${paramCount++}`);
+      values.push(req.body.imageUrl);
+    }
+    if (req.body.latitude) {
+      updateFields.push(`latitude = $${paramCount++}`);
+      values.push(req.body.latitude);
+    }
+    if (req.body.longitude) {
+      updateFields.push(`longitude = $${paramCount++}`);
+      values.push(req.body.longitude);
+    }
+
+    updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
+    values.push(req.params.id);
+
+    const result = await pool.query(
+      `UPDATE places SET ${updateFields.join(", ")} WHERE id = $${paramCount}`,
+      values
+    );
+
+    res.json({ message: "OK" });
+  } catch (error) {
+    console.error("Error updating place with image:", error);
+    res.status(400).json({ message: error.message });
+  }
+});
+
 // Delete place
 router.delete("/:id", async (req, res) => {
   try {
