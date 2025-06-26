@@ -1,8 +1,20 @@
 const { Pool } = require("pg");
 require("dotenv").config();
 
+console.log("DATABASE_URL:", process.env.DATABASE_URL ? "Set" : "Not set");
+console.log("NODE_ENV:", process.env.NODE_ENV);
+
+// Use Railway's DATABASE_URL or fallback for development
+const connectionString =
+  process.env.DATABASE_URL || "postgresql://localhost:5432/skenderaj_db";
+
+console.log(
+  "Using connection string:",
+  connectionString.substring(0, 50) + "..."
+);
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: connectionString,
   ssl: {
     rejectUnauthorized: false,
   },
