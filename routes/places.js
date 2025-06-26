@@ -1,6 +1,24 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../config/database");
+const multer = require("multer");
+const cloudinary = require("../config/cloudinary");
+
+// Configure multer for memory storage
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Accept only images
+    if (file.mimetype.startsWith("image/")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only image files are allowed!"), false);
+    }
+  },
+});
 
 // Get all places
 router.get("/", async (req, res) => {
@@ -34,7 +52,72 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// Create new place
+// Create new place with image upload
+router.post("/with-image", upload.single("image"), async (req, res) => {
+  try {
+    // Check if place with same name exists
+    const existingPlace = await pool.query(
+      "SELECT * FROM places WHERE name = $1",
+      [req.body.name]
+    );
+
+    if (existingPlace.rows.length > 0) {
+      return res.status(400).json({
+        message: "Ekziston një vend me të njëjtin emër",
+      });
+    }
+
+    let imageUrl = null;
+    let publicId = null;
+
+    // Upload image to Cloudinary if provided
+    if (req.file) {
+      // Convert buffer to base64
+      const b64 = Buffer.from(req.file.buffer).toString("base64");
+      const dataURI = `data:${req.file.mimetype};base64,${b64}`;
+
+      // Upload to Cloudinary
+      const cloudinaryResult = await cloudinary.uploader.upload(dataURI, {
+        folder: "skenderaj-places",
+        transformation: [
+          { width: 800, height: 600, crop: "limit" },
+          { quality: "auto" },
+        ],
+      });
+
+      imageUrl = cloudinaryResult.secure_url;
+      publicId = cloudinaryResult.public_id;
+    }
+
+    // Insert place into database
+    const result = await pool.query(
+      `INSERT INTO places (name, description, location, historical_significance, image_url, latitude, longitude) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7) 
+       RETURNING *`,
+      [
+        req.body.name,
+        req.body.description,
+        req.body.location,
+        req.body.historicalSignificance,
+        imageUrl || req.body.imageUrl, // Use uploaded image or provided URL
+        req.body.coordinates?.latitude || null,
+        req.body.coordinates?.longitude || null,
+      ]
+    );
+
+    res.status(201).json({
+      message: "OK",
+      place: result.rows[0],
+      imageUrl: imageUrl,
+      publicId: publicId,
+    });
+  } catch (error) {
+    console.error("Error creating place with image:", error);
+    res.status(400).json({ message: error.message });
+  }
+});
+
+// Create new place (without image upload)
 router.post("/", async (req, res) => {
   try {
     // Check if place with same name exists
