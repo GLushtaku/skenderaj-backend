@@ -8,10 +8,12 @@ console.log("NODE_ENV:", process.env.NODE_ENV);
 const connectionString =
   process.env.DATABASE_URL || "postgresql://localhost:5432/skenderaj_db";
 
-console.log(
-  "Using connection string:",
-  connectionString.substring(0, 50) + "..."
+// Log the connection string (without password for security)
+const safeConnectionString = connectionString.replace(
+  /\/\/[^:]+:[^@]+@/,
+  "//***:***@"
 );
+console.log("Using connection string:", safeConnectionString);
 
 const pool = new Pool({
   connectionString: connectionString,
@@ -23,7 +25,8 @@ const pool = new Pool({
 // Test the connection
 pool.query("SELECT NOW()", (err, res) => {
   if (err) {
-    console.error("❌ Database connection error:", err);
+    console.error("❌ Database connection error:", err.message);
+    console.error("Error code:", err.code);
   } else {
     console.log("✅ PostgreSQL Connected");
   }
