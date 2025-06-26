@@ -20,6 +20,13 @@ const upload = multer({
   },
 });
 
+function generateSlug(name) {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)+/g, "");
+}
+
 // Get all places
 router.get("/", async (req, res) => {
   try {
@@ -52,6 +59,21 @@ router.get("/:id", async (req, res) => {
   }
 });
 
+// Get place by slug
+router.get("/slug/:slug", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM places WHERE slug = $1", [
+      req.params.slug,
+    ]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Vendi nuk u gjet" });
+    }
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // Create new place with image upload
 router.post("/with-image", upload.single("image"), async (req, res) => {
   try {
@@ -68,14 +90,9 @@ router.post("/with-image", upload.single("image"), async (req, res) => {
     }
 
     let imageUrl = null;
-
-    // Upload image to Cloudinary if provided
     if (req.file) {
-      // Convert buffer to base64
       const b64 = Buffer.from(req.file.buffer).toString("base64");
       const dataURI = `data:${req.file.mimetype};base64,${b64}`;
-
-      // Upload to Cloudinary
       const cloudinaryResult = await cloudinary.uploader.upload(dataURI, {
         folder: "skenderaj-places",
         transformation: [
@@ -83,27 +100,24 @@ router.post("/with-image", upload.single("image"), async (req, res) => {
           { quality: "auto" },
         ],
       });
-
       imageUrl = cloudinaryResult.secure_url;
     }
-
-    // Insert place into database
+    const slug = generateSlug(req.body.name);
     const result = await pool.query(
-      `INSERT INTO places (name, description, location, historical_significance, image_url, latitude, longitude) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7) 
+      `INSERT INTO places (name, description, location, historical_significance, image_url, latitude, longitude, slug) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
        RETURNING *`,
       [
         req.body.name,
         req.body.description,
         req.body.location,
         req.body.historicalSignificance,
-        imageUrl || req.body.imageUrl, // Use uploaded image or provided URL
+        imageUrl || req.body.imageUrl,
         req.body.latitude || null,
         req.body.longitude || null,
+        slug,
       ]
     );
-
-    // Return only the place data
     res.status(201).json({ message: "OK" });
   } catch (error) {
     console.error("Error creating place with image:", error);
@@ -114,21 +128,19 @@ router.post("/with-image", upload.single("image"), async (req, res) => {
 // Create new place (without image upload)
 router.post("/", async (req, res) => {
   try {
-    // Check if place with same name exists
     const existingPlace = await pool.query(
       "SELECT * FROM places WHERE name = $1",
       [req.body.name]
     );
-
     if (existingPlace.rows.length > 0) {
       return res.status(400).json({
         message: "Ekziston një vend me të njëjtin emër",
       });
     }
-
+    const slug = generateSlug(req.body.name);
     const result = await pool.query(
-      `INSERT INTO places (name, description, location, historical_significance, image_url, latitude, longitude) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7) 
+      `INSERT INTO places (name, description, location, historical_significance, image_url, latitude, longitude, slug) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
        RETURNING *`,
       [
         req.body.name,
@@ -136,11 +148,11 @@ router.post("/", async (req, res) => {
         req.body.location,
         req.body.historicalSignificance,
         req.body.imageUrl,
-        req.body.coordinates?.latitude || null,
-        req.body.coordinates?.longitude || null,
+        req.body.latitude || null,
+        req.body.longitude || null,
+        slug,
       ]
     );
-
     res.status(201).json({ message: "OK" });
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -182,6 +194,8 @@ router.patch("/:id", async (req, res) => {
     if (req.body.name) {
       updateFields.push(`name = $${paramCount++}`);
       values.push(req.body.name);
+      updateFields.push(`slug = $${paramCount++}`);
+      values.push(generateSlug(req.body.name));
     }
     if (req.body.description) {
       updateFields.push(`description = $${paramCount++}`);
@@ -199,13 +213,13 @@ router.patch("/:id", async (req, res) => {
       updateFields.push(`image_url = $${paramCount++}`);
       values.push(req.body.imageUrl);
     }
-    if (req.body.coordinates?.latitude) {
+    if (req.body.latitude) {
       updateFields.push(`latitude = $${paramCount++}`);
-      values.push(req.body.coordinates.latitude);
+      values.push(req.body.latitude);
     }
-    if (req.body.coordinates?.longitude) {
+    if (req.body.longitude) {
       updateFields.push(`longitude = $${paramCount++}`);
-      values.push(req.body.coordinates.longitude);
+      values.push(req.body.longitude);
     }
 
     updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
@@ -277,6 +291,8 @@ router.patch("/:id/with-image", upload.single("image"), async (req, res) => {
     if (req.body.name) {
       updateFields.push(`name = $${paramCount++}`);
       values.push(req.body.name);
+      updateFields.push(`slug = $${paramCount++}`);
+      values.push(generateSlug(req.body.name));
     }
     if (req.body.description) {
       updateFields.push(`description = $${paramCount++}`);
