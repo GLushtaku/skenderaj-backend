@@ -20,6 +20,18 @@ const initDatabase = async () => {
     `;
 
     await pool.query(createTableQuery);
+
+    // Add slug column if it doesn't exist (for existing tables)
+    try {
+      await pool.query(`
+        ALTER TABLE places ADD COLUMN slug VARCHAR(255) UNIQUE;
+      `);
+      console.log("✅ Slug column added to existing table");
+    } catch (error) {
+      // Column already exists, ignore error
+      console.log("ℹ️ Slug column already exists");
+    }
+
     console.log("✅ Database tables initialized");
   } catch (error) {
     console.error("❌ Database initialization error:", error);
