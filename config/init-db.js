@@ -13,6 +13,7 @@ const initDatabase = async () => {
         image_url TEXT NOT NULL,
         latitude DECIMAL(10, 8),
         longitude DECIMAL(11, 8),
+        slug VARCHAR(255) UNIQUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
