@@ -20,8 +20,8 @@ const upload = multer({
   },
 });
 
-// Configure multer for multiple images
-const uploadMultiple = multer({
+// Configure multer for multiple images with any field name
+const uploadAnyFiles = multer({
   storage: multer.memoryStorage(),
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit per file
@@ -34,7 +34,7 @@ const uploadMultiple = multer({
       cb(new Error("Only image files are allowed!"), false);
     }
   },
-}).array("images", 10); // Allow up to 10 images
+}).any(); // Accept any field name
 
 function generateSlug(name) {
   return name
@@ -163,13 +163,16 @@ router.post("/with-image", upload.single("image"), async (req, res) => {
 
 // Create new place with multiple images upload
 router.post("/with-multiple-images", (req, res) => {
-  uploadMultiple(req, res, async (err) => {
+  uploadAnyFiles(req, res, async (err) => {
     if (err) {
       console.error("Multer error:", err);
       return res.status(400).json({ message: err.message });
     }
 
     try {
+      console.log("Files received:", req.files ? req.files.length : 0);
+      console.log("Body fields:", Object.keys(req.body));
+
       // Check if place with same name exists
       const existingPlace = await pool.query(
         "SELECT * FROM places WHERE name = $1",
@@ -185,8 +188,10 @@ router.post("/with-multiple-images", (req, res) => {
       let imageUrl = null;
       let imagesArray = [];
 
-      // Upload main image if provided
+      // Upload all files to Cloudinary
       if (req.files && req.files.length > 0) {
+        console.log("Processing", req.files.length, "files");
+
         // First file is the main image
         const mainImage = req.files[0];
         const b64 = Buffer.from(mainImage.buffer).toString("base64");
@@ -199,6 +204,7 @@ router.post("/with-multiple-images", (req, res) => {
           ],
         });
         imageUrl = cloudinaryResult.secure_url;
+        console.log("Main image uploaded:", imageUrl);
 
         // Upload remaining files as gallery images
         for (let i = 1; i < req.files.length; i++) {
@@ -213,6 +219,7 @@ router.post("/with-multiple-images", (req, res) => {
             ],
           });
           imagesArray.push(cloudinaryResult.secure_url);
+          console.log("Gallery image uploaded:", cloudinaryResult.secure_url);
         }
       }
 
@@ -514,7 +521,7 @@ router.patch("/:id/with-image", upload.single("image"), async (req, res) => {
 
 // Update place with multiple images upload
 router.patch("/:id/with-multiple-images", (req, res) => {
-  uploadMultiple(req, res, async (err) => {
+  uploadAnyFiles(req, res, async (err) => {
     if (err) {
       console.error("Multer error:", err);
       return res.status(400).json({ message: err.message });
@@ -548,8 +555,10 @@ router.patch("/:id/with-multiple-images", (req, res) => {
       let imageUrl = null;
       let imagesArray = [];
 
-      // Upload files to Cloudinary if provided
+      // Upload all files to Cloudinary
       if (req.files && req.files.length > 0) {
+        console.log("Processing", req.files.length, "files");
+
         // First file is the main image
         const mainImage = req.files[0];
         const b64 = Buffer.from(mainImage.buffer).toString("base64");
@@ -562,6 +571,7 @@ router.patch("/:id/with-multiple-images", (req, res) => {
           ],
         });
         imageUrl = cloudinaryResult.secure_url;
+        console.log("Main image uploaded:", imageUrl);
 
         // Upload remaining files as gallery images
         for (let i = 1; i < req.files.length; i++) {
@@ -576,6 +586,7 @@ router.patch("/:id/with-multiple-images", (req, res) => {
             ],
           });
           imagesArray.push(cloudinaryResult.secure_url);
+          console.log("Gallery image uploaded:", cloudinaryResult.secure_url);
         }
       }
 
