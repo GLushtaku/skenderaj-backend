@@ -17,9 +17,11 @@ console.log("Using connection string:", safeConnectionString);
 
 const pool = new Pool({
   connectionString: connectionString,
-  ssl: {
-    rejectUnauthorized: false,
-  },
+  ssl: process.env.DATABASE_URL
+    ? {
+        rejectUnauthorized: false,
+      }
+    : false,
 });
 
 // Test the connection

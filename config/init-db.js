@@ -11,6 +11,7 @@ const initDatabase = async () => {
         location VARCHAR(255) NOT NULL,
         historical_significance TEXT NOT NULL,
         image_url TEXT NOT NULL,
+        images TEXT[] DEFAULT '{}',
         latitude DECIMAL(10, 8),
         longitude DECIMAL(11, 8),
         slug VARCHAR(255) UNIQUE,
@@ -30,6 +31,17 @@ const initDatabase = async () => {
     } catch (error) {
       // Column already exists, ignore error
       console.log("ℹ️ Slug column already exists");
+    }
+
+    // Add images column if it doesn't exist (for existing tables)
+    try {
+      await pool.query(`
+        ALTER TABLE places ADD COLUMN images TEXT[] DEFAULT '{}';
+      `);
+      console.log("✅ Images column added to existing table");
+    } catch (error) {
+      // Column already exists, ignore error
+      console.log("ℹ️ Images column already exists");
     }
 
     console.log("✅ Database tables initialized");

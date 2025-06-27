@@ -103,21 +103,41 @@ router.post("/with-image", upload.single("image"), async (req, res) => {
       imageUrl = cloudinaryResult.secure_url;
     }
     const slug = generateSlug(req.body.name);
+
+    // Handle images array - convert to array if it's a string or ensure it's an array
+    let imagesArray = [];
+    if (req.body.images) {
+      if (Array.isArray(req.body.images)) {
+        imagesArray = req.body.images;
+      } else if (typeof req.body.images === "string") {
+        // If it's a JSON string, parse it
+        try {
+          imagesArray = JSON.parse(req.body.images);
+        } catch (e) {
+          // If parsing fails, treat it as a single image URL
+          imagesArray = [req.body.images];
+        }
+      }
+    }
+
+    // Insert the place into database
     const result = await pool.query(
-      `INSERT INTO places (name, description, location, historical_significance, image_url, latitude, longitude, slug) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
+      `INSERT INTO places (name, description, location, historical_significance, image_url, images, latitude, longitude, slug) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
        RETURNING *`,
       [
         req.body.name,
         req.body.description,
         req.body.location,
         req.body.historicalSignificance,
-        imageUrl || req.body.imageUrl,
+        imageUrl,
+        imagesArray,
         req.body.latitude || null,
         req.body.longitude || null,
         slug,
       ]
     );
+
     res.status(201).json({ message: "OK" });
   } catch (error) {
     console.error("Error creating place with image:", error);
@@ -138,9 +158,26 @@ router.post("/", async (req, res) => {
       });
     }
     const slug = generateSlug(req.body.name);
+
+    // Handle images array - convert to array if it's a string or ensure it's an array
+    let imagesArray = [];
+    if (req.body.images) {
+      if (Array.isArray(req.body.images)) {
+        imagesArray = req.body.images;
+      } else if (typeof req.body.images === "string") {
+        // If it's a JSON string, parse it
+        try {
+          imagesArray = JSON.parse(req.body.images);
+        } catch (e) {
+          // If parsing fails, treat it as a single image URL
+          imagesArray = [req.body.images];
+        }
+      }
+    }
+
     const result = await pool.query(
-      `INSERT INTO places (name, description, location, historical_significance, image_url, latitude, longitude, slug) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
+      `INSERT INTO places (name, description, location, historical_significance, image_url, images, latitude, longitude, slug) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
        RETURNING *`,
       [
         req.body.name,
@@ -148,6 +185,7 @@ router.post("/", async (req, res) => {
         req.body.location,
         req.body.historicalSignificance,
         req.body.imageUrl,
+        imagesArray,
         req.body.latitude || null,
         req.body.longitude || null,
         slug,
@@ -220,6 +258,25 @@ router.patch("/:id", async (req, res) => {
     if (req.body.longitude) {
       updateFields.push(`longitude = $${paramCount++}`);
       values.push(req.body.longitude);
+    }
+    if (req.body.images !== undefined) {
+      // Handle images array - convert to array if it's a string or ensure it's an array
+      let imagesArray = [];
+      if (req.body.images) {
+        if (Array.isArray(req.body.images)) {
+          imagesArray = req.body.images;
+        } else if (typeof req.body.images === "string") {
+          // If it's a JSON string, parse it
+          try {
+            imagesArray = JSON.parse(req.body.images);
+          } catch (e) {
+            // If parsing fails, treat it as a single image URL
+            imagesArray = [req.body.images];
+          }
+        }
+      }
+      updateFields.push(`images = $${paramCount++}`);
+      values.push(imagesArray);
     }
 
     updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
@@ -320,6 +377,25 @@ router.patch("/:id/with-image", upload.single("image"), async (req, res) => {
     if (req.body.longitude) {
       updateFields.push(`longitude = $${paramCount++}`);
       values.push(req.body.longitude);
+    }
+    if (req.body.images !== undefined) {
+      // Handle images array - convert to array if it's a string or ensure it's an array
+      let imagesArray = [];
+      if (req.body.images) {
+        if (Array.isArray(req.body.images)) {
+          imagesArray = req.body.images;
+        } else if (typeof req.body.images === "string") {
+          // If it's a JSON string, parse it
+          try {
+            imagesArray = JSON.parse(req.body.images);
+          } catch (e) {
+            // If parsing fails, treat it as a single image URL
+            imagesArray = [req.body.images];
+          }
+        }
+      }
+      updateFields.push(`images = $${paramCount++}`);
+      values.push(imagesArray);
     }
 
     updateFields.push(`updated_at = CURRENT_TIMESTAMP`);

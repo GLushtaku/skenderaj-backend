@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "build": "echo 'No build step required'"
+    "build": "echo 'No build step required'",
+    "migrate": "node migrations/run-migrations.js",
+    "migration:create": "node migrations/create-migration.js"
   },
   "keywords": [
     "api",
